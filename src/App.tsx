@@ -9,6 +9,8 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
+import Profile from "./pages/Profile";
+import Jobs from "./pages/Jobs";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +31,22 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/profile" 
+        element={
+          <ProtectedRoute allowedRoles={['candidate', 'recruiter']}>
+            <Profile />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/jobs" 
+        element={
+          <ProtectedRoute>
+            <Jobs />
           </ProtectedRoute>
         } 
       />

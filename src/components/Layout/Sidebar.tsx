@@ -9,7 +9,8 @@ import {
   Briefcase, 
   FileText, 
   Users, 
-  Settings 
+  Settings,
+  Plus 
 } from 'lucide-react';
 
 const Sidebar = () => {
@@ -27,7 +28,7 @@ const Sidebar = () => {
     { href: '/dashboard', label: 'Dashboard', icon: Home },
     { href: '/profile', label: 'Company Profile', icon: User },
     { href: '/jobs/posted', label: 'Posted Jobs', icon: Briefcase },
-    { href: '/jobs/create', label: 'Post New Job', icon: FileText },
+    { href: '/jobs/create', label: 'Post New Job', icon: Plus },
     { href: '/applications', label: 'Applications', icon: Users },
   ];
 
