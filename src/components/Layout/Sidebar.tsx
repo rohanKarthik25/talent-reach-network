@@ -36,7 +36,7 @@ const Sidebar = () => {
     { href: '/dashboard', label: 'Dashboard', icon: Home },
     { href: '/users', label: 'Manage Users', icon: Users },
     { href: '/jobs', label: 'All Jobs', icon: Briefcase },
-    { href: '/applications', label: 'All Applications', icon: FileText },
+    { href: '/all-applications', label: 'All Applications', icon: FileText },
     { href: '/settings', label: 'Settings', icon: Settings },
   ];
 

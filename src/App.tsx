@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,6 +14,9 @@ import Applications from "./pages/Applications";
 import PostedJobs from "./pages/PostedJobs";
 import CreateJob from "./pages/CreateJob";
 import NotFound from "./pages/NotFound";
+import Users from "./pages/Users";
+import AllApplications from "./pages/AllApplications";
+import Settings from "./pages/Settings";
 
 const queryClient = new QueryClient();
 
@@ -74,6 +76,30 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute allowedRoles={['recruiter']}>
             <CreateJob />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/users" 
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <Users />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/all-applications" 
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AllApplications />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/settings" 
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <Settings />
           </ProtectedRoute>
         } 
       />
