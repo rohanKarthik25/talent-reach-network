@@ -49,7 +49,7 @@ const JobListing = () => {
     const matchesSearch = job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          job.skills_required.some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesLocation = !locationFilter || job.location.toLowerCase().includes(locationFilter.toLowerCase());
-    const matchesExperience = !experienceFilter || job.experience_level === experienceFilter;
+    const matchesExperience = !experienceFilter || experienceFilter === 'all' || job.experience_level === experienceFilter;
     
     return matchesSearch && matchesLocation && matchesExperience;
   });
@@ -91,7 +91,7 @@ const JobListing = () => {
                   <SelectValue placeholder="Experience Level" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Levels</SelectItem>
+                  <SelectItem value="all">All Levels</SelectItem>
                   <SelectItem value="fresher">Fresher</SelectItem>
                   <SelectItem value="experienced">Experienced</SelectItem>
                 </SelectContent>
