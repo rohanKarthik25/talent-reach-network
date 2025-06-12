@@ -11,6 +11,9 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Jobs from "./pages/Jobs";
+import Applications from "./pages/Applications";
+import PostedJobs from "./pages/PostedJobs";
+import CreateJob from "./pages/CreateJob";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -47,6 +50,30 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Jobs />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/applications" 
+        element={
+          <ProtectedRoute allowedRoles={['candidate', 'recruiter']}>
+            <Applications />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/jobs/posted" 
+        element={
+          <ProtectedRoute allowedRoles={['recruiter']}>
+            <PostedJobs />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/jobs/create" 
+        element={
+          <ProtectedRoute allowedRoles={['recruiter']}>
+            <CreateJob />
           </ProtectedRoute>
         } 
       />
