@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { useNavigate } from 'react-router-dom';
-import { Users, Briefcase, FileText, Settings } from 'lucide-react';
+import { Users, Briefcase, FileText, Settings, Monitor } from 'lucide-react';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -89,9 +89,13 @@ const AdminDashboard = () => {
               <Briefcase className="h-4 w-4 mr-2" />
               Review Jobs
             </Button>
-            <Button variant="outline" onClick={() => navigate('/applications')}>
-              <FileText className="h-4 w-4 mr-2" />
+            <Button variant="outline" onClick={() => navigate('/applications-monitor')}>
+              <Monitor className="h-4 w-4 mr-2" />
               Monitor Applications
+            </Button>
+            <Button variant="outline" onClick={() => navigate('/all-applications')}>
+              <FileText className="h-4 w-4 mr-2" />
+              All Applications
             </Button>
             <Button variant="outline" onClick={() => navigate('/settings')}>
               <Settings className="h-4 w-4 mr-2" />

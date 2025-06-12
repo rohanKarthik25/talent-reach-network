@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -17,6 +18,7 @@ import NotFound from "./pages/NotFound";
 import Users from "./pages/Users";
 import AllApplications from "./pages/AllApplications";
 import Settings from "./pages/Settings";
+import ApplicationsMonitor from "./pages/ApplicationsMonitor";
 
 const queryClient = new QueryClient();
 
@@ -92,6 +94,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute allowedRoles={['admin']}>
             <AllApplications />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/applications-monitor" 
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <ApplicationsMonitor />
           </ProtectedRoute>
         } 
       />
