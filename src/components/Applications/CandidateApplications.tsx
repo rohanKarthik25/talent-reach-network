@@ -12,17 +12,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 interface Application {
   id: string;
   job_id: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  phone: string;
-  applied_position: string;
+  candidate_id: string;
   status: string;
   applied_at: string;
-  resume_url: string;
+  updated_at: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  phone?: string;
+  applied_position?: string;
+  resume_url?: string;
   job?: {
     title: string;
-    company: string;
     location: string;
   };
 }
@@ -123,12 +124,14 @@ const CandidateApplications = () => {
               <CardContent className="p-6">
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex-1">
-                    <h3 className="text-xl font-semibold mb-2">{application.applied_position}</h3>
+                    <h3 className="text-xl font-semibold mb-2">
+                      {application.applied_position || application.job?.title || 'Job Application'}
+                    </h3>
                     {application.job && (
                       <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
                         <div className="flex items-center gap-1">
                           <Building className="h-4 w-4" />
-                          Company
+                          {application.job.title}
                         </div>
                         <div className="flex items-center gap-1">
                           <MapPin className="h-4 w-4" />
@@ -152,7 +155,7 @@ const CandidateApplications = () => {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleViewResume(application.resume_url)}
+                          onClick={() => handleViewResume(application.resume_url!)}
                         >
                           <Eye className="h-4 w-4 mr-2" />
                           View
@@ -161,8 +164,8 @@ const CandidateApplications = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => handleDownloadResume(
-                            application.resume_url, 
-                            `${application.first_name}_${application.last_name}_Resume.pdf`
+                            application.resume_url!, 
+                            `${application.first_name || 'Resume'}_${application.last_name || 'Application'}.pdf`
                           )}
                         >
                           <Download className="h-4 w-4 mr-2" />
