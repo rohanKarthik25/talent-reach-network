@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -8,52 +8,112 @@ import { Textarea } from '../ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Badge } from '../ui/badge';
 import { Upload, Download, User, MapPin, Phone, Mail, GraduationCap, Briefcase, Award } from 'lucide-react';
+import { useCandidate } from '@/hooks/useCandidate';
+import { toast } from 'sonner';
 
 const CandidateProfile = () => {
-  const [profile, setProfile] = useState({
-    name: 'John Doe',
-    email: 'john.doe@example.com',
-    phone: '+1234567890',
-    location: 'New York, NY',
-    education: 'Bachelor of Computer Science',
-    experience: '2 years as Frontend Developer',
-    skills: ['React', 'TypeScript', 'Node.js', 'Python'],
-    resume_url: null
-  });
-
+  const { profile, loading, updateProfile, uploadFile } = useCandidate();
   const [newSkill, setNewSkill] = useState('');
   const [isLookingForJob, setIsLookingForJob] = useState(true);
 
-  const handleAddSkill = () => {
-    if (newSkill.trim() && !profile.skills.includes(newSkill.trim())) {
-      setProfile(prev => ({
+  // Form states for each section
+  const [personalDetails, setPersonalDetails] = useState({
+    name: '',
+    surname: '',
+    email: '',
+    phone: '',
+    idPassport: '',
+    gender: '',
+    age: ''
+  });
+
+  const [locationData, setLocationData] = useState('');
+  const [educationData, setEducationData] = useState('');
+  const [experienceData, setExperienceData] = useState('');
+  const [licenseData, setLicenseData] = useState({
+    type: '',
+    number: ''
+  });
+
+  useEffect(() => {
+    if (profile) {
+      setPersonalDetails(prev => ({
         ...prev,
-        skills: [...prev.skills, newSkill.trim()]
+        name: profile.name || '',
+        phone: profile.phone || ''
       }));
+      setLocationData(profile.location || '');
+      setEducationData(profile.education || '');
+      setExperienceData(profile.experience || '');
+      setLicenseData({
+        type: profile.license_type || '',
+        number: profile.license_number || ''
+      });
+    }
+  }, [profile]);
+
+  const handleAddSkill = () => {
+    if (newSkill.trim() && profile && !profile.skills.includes(newSkill.trim())) {
+      const updatedSkills = [...profile.skills, newSkill.trim()];
+      updateProfile({ skills: updatedSkills });
       setNewSkill('');
     }
   };
 
   const handleRemoveSkill = (skillToRemove: string) => {
-    setProfile(prev => ({
-      ...prev,
-      skills: prev.skills.filter(skill => skill !== skillToRemove)
-    }));
-  };
-
-  const handleResumeUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file && file.type === 'application/pdf') {
-      // Mock upload - replace with Supabase storage
-      console.log('Uploading resume:', file.name);
-      setProfile(prev => ({
-        ...prev,
-        resume_url: `/mock-resume-${Date.now()}.pdf`
-      }));
-    } else {
-      alert('Please upload a PDF file only');
+    if (profile) {
+      const updatedSkills = profile.skills.filter(skill => skill !== skillToRemove);
+      updateProfile({ skills: updatedSkills });
     }
   };
+
+  const handleResumeUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.type === 'application/pdf') {
+      try {
+        const resumeUrl = await uploadFile(file, 'resumes', 'profiles/');
+        await updateProfile({ resume_url: resumeUrl });
+      } catch (error) {
+        console.error('Error uploading resume:', error);
+      }
+    } else {
+      toast.error('Please upload a PDF file only');
+    }
+  };
+
+  const handleUpdateDetails = () => {
+    updateProfile({
+      name: personalDetails.name,
+      phone: personalDetails.phone
+    });
+  };
+
+  const handleUpdateLocation = () => {
+    updateProfile({ location: locationData });
+  };
+
+  const handleUpdateEducation = () => {
+    updateProfile({ education: educationData });
+  };
+
+  const handleUpdateExperience = () => {
+    updateProfile({ experience: experienceData });
+  };
+
+  const handleUpdateLicense = () => {
+    updateProfile({
+      license_type: licenseData.type,
+      license_number: licenseData.number
+    });
+  };
+
+  const handleUpdateCVSkills = () => {
+    toast.success('CV & Skills updated successfully');
+  };
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -117,13 +177,17 @@ const CandidateProfile = () => {
                   <Label htmlFor="name">Name</Label>
                   <Input
                     id="name"
-                    value={profile.name}
-                    onChange={(e) => setProfile(prev => ({ ...prev, name: e.target.value }))}
+                    value={personalDetails.name}
+                    onChange={(e) => setPersonalDetails(prev => ({ ...prev, name: e.target.value }))}
                   />
                 </div>
                 <div>
                   <Label htmlFor="surname">Surname</Label>
-                  <Input id="surname" placeholder="Enter surname" />
+                  <Input 
+                    id="surname" 
+                    value={personalDetails.surname}
+                    onChange={(e) => setPersonalDetails(prev => ({ ...prev, surname: e.target.value }))}
+                  />
                 </div>
               </div>
               
@@ -133,16 +197,16 @@ const CandidateProfile = () => {
                   <Input
                     id="email"
                     type="email"
-                    value={profile.email}
-                    onChange={(e) => setProfile(prev => ({ ...prev, email: e.target.value }))}
+                    value={personalDetails.email}
+                    onChange={(e) => setPersonalDetails(prev => ({ ...prev, email: e.target.value }))}
                   />
                 </div>
                 <div>
                   <Label htmlFor="phone">Cellular Number</Label>
                   <Input
                     id="phone"
-                    value={profile.phone}
-                    onChange={(e) => setProfile(prev => ({ ...prev, phone: e.target.value }))}
+                    value={personalDetails.phone}
+                    onChange={(e) => setPersonalDetails(prev => ({ ...prev, phone: e.target.value }))}
                   />
                 </div>
               </div>
@@ -150,17 +214,32 @@ const CandidateProfile = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>ID / Passport Number</Label>
-                  <Input placeholder="Enter ID/Passport number" />
+                  <Input 
+                    value={personalDetails.idPassport}
+                    onChange={(e) => setPersonalDetails(prev => ({ ...prev, idPassport: e.target.value }))}
+                  />
                 </div>
                 <div>
                   <Label>Gender</Label>
                   <div className="flex gap-4 mt-2">
                     <label className="flex items-center gap-2">
-                      <input type="radio" name="gender" value="male" />
+                      <input 
+                        type="radio" 
+                        name="gender" 
+                        value="male"
+                        checked={personalDetails.gender === 'male'}
+                        onChange={(e) => setPersonalDetails(prev => ({ ...prev, gender: e.target.value }))}
+                      />
                       Male
                     </label>
                     <label className="flex items-center gap-2">
-                      <input type="radio" name="gender" value="female" />
+                      <input 
+                        type="radio" 
+                        name="gender" 
+                        value="female"
+                        checked={personalDetails.gender === 'female'}
+                        onChange={(e) => setPersonalDetails(prev => ({ ...prev, gender: e.target.value }))}
+                      />
                       Female
                     </label>
                   </div>
@@ -169,10 +248,15 @@ const CandidateProfile = () => {
 
               <div>
                 <Label htmlFor="age">Age</Label>
-                <Input id="age" type="number" placeholder="Enter age" />
+                <Input 
+                  id="age" 
+                  type="number"
+                  value={personalDetails.age}
+                  onChange={(e) => setPersonalDetails(prev => ({ ...prev, age: e.target.value }))}
+                />
               </div>
 
-              <Button>Update Details</Button>
+              <Button onClick={handleUpdateDetails}>Update Details</Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -191,11 +275,11 @@ const CandidateProfile = () => {
                   <Label htmlFor="location">Current Location</Label>
                   <Input
                     id="location"
-                    value={profile.location}
-                    onChange={(e) => setProfile(prev => ({ ...prev, location: e.target.value }))}
+                    value={locationData}
+                    onChange={(e) => setLocationData(e.target.value)}
                   />
                 </div>
-                <Button>Update Location</Button>
+                <Button onClick={handleUpdateLocation}>Update Location</Button>
               </div>
             </CardContent>
           </Card>
@@ -227,8 +311,8 @@ const CandidateProfile = () => {
                       Upload Resume
                     </Button>
                   </label>
-                  {profile.resume_url && (
-                    <Button variant="outline">
+                  {profile?.resume_url && (
+                    <Button variant="outline" onClick={() => window.open(profile.resume_url, '_blank')}>
                       <Download className="h-4 w-4 mr-2" />
                       Download Current Resume
                     </Button>
@@ -240,7 +324,7 @@ const CandidateProfile = () => {
               <div>
                 <Label>Skills</Label>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {profile.skills.map((skill, index) => (
+                  {profile?.skills.map((skill, index) => (
                     <Badge key={index} variant="secondary" className="cursor-pointer">
                       {skill}
                       <button
@@ -263,7 +347,7 @@ const CandidateProfile = () => {
                 </div>
               </div>
 
-              <Button>Update CV & Skills</Button>
+              <Button onClick={handleUpdateCVSkills}>Update CV & Skills</Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -282,12 +366,12 @@ const CandidateProfile = () => {
                   <Label htmlFor="education">Education</Label>
                   <Textarea
                     id="education"
-                    value={profile.education}
-                    onChange={(e) => setProfile(prev => ({ ...prev, education: e.target.value }))}
+                    value={educationData}
+                    onChange={(e) => setEducationData(e.target.value)}
                     placeholder="Enter your educational qualifications"
                   />
                 </div>
-                <Button>Update Education</Button>
+                <Button onClick={handleUpdateEducation}>Update Education</Button>
               </div>
             </CardContent>
           </Card>
@@ -302,13 +386,21 @@ const CandidateProfile = () => {
               <div className="space-y-4">
                 <div>
                   <Label>License Type</Label>
-                  <Input placeholder="Enter license type" />
+                  <Input 
+                    value={licenseData.type}
+                    onChange={(e) => setLicenseData(prev => ({ ...prev, type: e.target.value }))}
+                    placeholder="Enter license type" 
+                  />
                 </div>
                 <div>
                   <Label>License Number</Label>
-                  <Input placeholder="Enter license number" />
+                  <Input 
+                    value={licenseData.number}
+                    onChange={(e) => setLicenseData(prev => ({ ...prev, number: e.target.value }))}
+                    placeholder="Enter license number" 
+                  />
                 </div>
-                <Button>Update License</Button>
+                <Button onClick={handleUpdateLicense}>Update License</Button>
               </div>
             </CardContent>
           </Card>
@@ -328,12 +420,12 @@ const CandidateProfile = () => {
                   <Label htmlFor="experience">Work Experience</Label>
                   <Textarea
                     id="experience"
-                    value={profile.experience}
-                    onChange={(e) => setProfile(prev => ({ ...prev, experience: e.target.value }))}
+                    value={experienceData}
+                    onChange={(e) => setExperienceData(e.target.value)}
                     placeholder="Describe your work experience"
                   />
                 </div>
-                <Button>Update Experience</Button>
+                <Button onClick={handleUpdateExperience}>Update Experience</Button>
               </div>
             </CardContent>
           </Card>

@@ -6,11 +6,14 @@ import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Badge } from '../ui/badge';
 import { MapPin, Clock, Building, Search } from 'lucide-react';
+import JobApplicationModal from '../Applications/JobApplicationModal';
 
 const JobListing = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
   const [experienceFilter, setExperienceFilter] = useState('');
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false);
 
   const mockJobs = [
     {
@@ -53,6 +56,11 @@ const JobListing = () => {
     
     return matchesSearch && matchesLocation && matchesExperience;
   });
+
+  const handleApplyNow = (job) => {
+    setSelectedJob(job);
+    setIsApplicationModalOpen(true);
+  };
 
   return (
     <div className="space-y-6">
@@ -145,13 +153,24 @@ const JobListing = () => {
                   </Badge>
                 </div>
                 <div className="ml-4">
-                  <Button>Apply Now</Button>
+                  <Button onClick={() => handleApplyNow(job)}>Apply Now</Button>
                 </div>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {selectedJob && (
+        <JobApplicationModal
+          job={selectedJob}
+          isOpen={isApplicationModalOpen}
+          onClose={() => {
+            setIsApplicationModalOpen(false);
+            setSelectedJob(null);
+          }}
+        />
+      )}
     </div>
   );
 };
