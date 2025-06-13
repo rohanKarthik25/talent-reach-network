@@ -9,7 +9,7 @@ import { Job } from '@/types';
 import { useCandidate } from '@/hooks/useCandidate';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Upload } from 'lucide-react';
+import { Upload, FileText, AlertCircle } from 'lucide-react';
 
 interface JobApplicationModalProps {
   job: Job;
@@ -20,6 +20,7 @@ interface JobApplicationModalProps {
 const JobApplicationModal = ({ job, isOpen, onClose }: JobApplicationModalProps) => {
   const { profile, uploadFile } = useCandidate();
   const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string>('');
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -33,52 +34,126 @@ const JobApplicationModal = ({ job, isOpen, onClose }: JobApplicationModalProps)
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [additionalDocsFile, setAdditionalDocsFile] = useState<File | null>(null);
 
+  const validateFile = (file: File, allowedTypes: string[]) => {
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    
+    if (file.size > maxSize) {
+      toast.error('File size must be less than 10MB');
+      return false;
+    }
+    
+    if (!allowedTypes.includes(file.type)) {
+      toast.error(`Please upload a file of type: ${allowedTypes.join(', ')}`);
+      return false;
+    }
+    
+    return true;
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>, type: 'resume' | 'docs') => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = type === 'resume' 
+      ? ['application/pdf']
+      : ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+
+    if (validateFile(file, allowedTypes)) {
+      if (type === 'resume') {
+        setResumeFile(file);
+      } else {
+        setAdditionalDocsFile(file);
+      }
+    } else {
+      // Clear the input
+      event.target.value = '';
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (!profile) {
-      toast.error('Profile not found');
+      toast.error('Profile not found. Please complete your profile first.');
+      return;
+    }
+
+    if (!resumeFile) {
+      toast.error('Please upload a resume');
       return;
     }
 
     setLoading(true);
+    setUploadProgress('Preparing application...');
+
     try {
       let resumeUrl = '';
       let additionalDocsUrl = '';
 
-      if (resumeFile) {
-        resumeUrl = await uploadFile(resumeFile, 'resumes', 'applications/');
-      }
-
+      // Upload resume
+      setUploadProgress('Uploading resume...');
+      resumeUrl = await uploadFile(resumeFile, 'resumes', 'applications/');
+      
+      // Upload additional documents if provided
       if (additionalDocsFile) {
+        setUploadProgress('Uploading additional documents...');
         additionalDocsUrl = await uploadFile(additionalDocsFile, 'documents', 'applications/');
       }
 
-      const { error } = await supabase
+      setUploadProgress('Submitting application...');
+
+      const applicationData = {
+        job_id: job.id,
+        candidate_id: profile.id,
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        applied_position: formData.appliedPosition,
+        earliest_start_date: formData.earliestStartDate || null,
+        preferred_interview_date: formData.preferredInterviewDate || null,
+        cover_letter: formData.coverLetter,
+        resume_url: resumeUrl,
+        additional_documents_url: additionalDocsUrl || null,
+        status: 'applied'
+      };
+
+      console.log('Submitting application data:', applicationData);
+
+      const { data, error } = await supabase
         .from('applications')
-        .insert({
-          job_id: job.id,
-          candidate_id: profile.id,
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          email: formData.email,
-          phone: formData.phone,
-          applied_position: formData.appliedPosition,
-          earliest_start_date: formData.earliestStartDate || null,
-          preferred_interview_date: formData.preferredInterviewDate || null,
-          cover_letter: formData.coverLetter,
-          resume_url: resumeUrl,
-          additional_documents_url: additionalDocsUrl
-        });
+        .insert(applicationData)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Application submission error:', error);
+        throw error;
+      }
 
+      console.log('Application submitted successfully:', data);
       toast.success('Application submitted successfully!');
       onClose();
+      
+      // Reset form
+      setFormData({
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        appliedPosition: job.title,
+        earliestStartDate: '',
+        preferredInterviewDate: '',
+        coverLetter: ''
+      });
+      setResumeFile(null);
+      setAdditionalDocsFile(null);
+      
     } catch (error) {
       console.error('Error submitting application:', error);
-      toast.error('Failed to submit application');
+      toast.error(`Failed to submit application: ${error.message}`);
     } finally {
       setLoading(false);
+      setUploadProgress('');
     }
   };
 
@@ -86,8 +161,15 @@ const JobApplicationModal = ({ job, isOpen, onClose }: JobApplicationModalProps)
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Job Application Form</DialogTitle>
+          <DialogTitle>Apply for {job.title}</DialogTitle>
         </DialogHeader>
+        
+        {uploadProgress && (
+          <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
+            <AlertCircle className="h-4 w-4 text-blue-600" />
+            <span className="text-sm text-blue-800">{uploadProgress}</span>
+          </div>
+        )}
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -170,6 +252,7 @@ const JobApplicationModal = ({ job, isOpen, onClose }: JobApplicationModalProps)
               rows={4}
               value={formData.coverLetter}
               onChange={(e) => setFormData(prev => ({ ...prev, coverLetter: e.target.value }))}
+              placeholder="Tell us why you're interested in this position..."
             />
           </div>
 
@@ -179,15 +262,22 @@ const JobApplicationModal = ({ job, isOpen, onClose }: JobApplicationModalProps)
               <input
                 type="file"
                 accept=".pdf"
-                onChange={(e) => setResumeFile(e.target.files?.[0] || null)}
+                onChange={(e) => handleFileChange(e, 'resume')}
                 className="hidden"
                 id="resume-upload"
                 required
               />
               <label htmlFor="resume-upload">
-                <Button type="button" variant="outline" className="cursor-pointer">
+                <Button type="button" variant="outline" className="cursor-pointer w-full justify-start">
                   <Upload className="h-4 w-4 mr-2" />
-                  {resumeFile ? resumeFile.name : 'Upload Resume'}
+                  {resumeFile ? (
+                    <span className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      {resumeFile.name}
+                    </span>
+                  ) : (
+                    'Upload Resume (PDF)'
+                  )}
                 </Button>
               </label>
             </div>
@@ -199,25 +289,32 @@ const JobApplicationModal = ({ job, isOpen, onClose }: JobApplicationModalProps)
               <input
                 type="file"
                 accept=".pdf,.doc,.docx"
-                onChange={(e) => setAdditionalDocsFile(e.target.files?.[0] || null)}
+                onChange={(e) => handleFileChange(e, 'docs')}
                 className="hidden"
                 id="docs-upload"
               />
               <label htmlFor="docs-upload">
-                <Button type="button" variant="outline" className="cursor-pointer">
+                <Button type="button" variant="outline" className="cursor-pointer w-full justify-start">
                   <Upload className="h-4 w-4 mr-2" />
-                  {additionalDocsFile ? additionalDocsFile.name : 'Upload Documents'}
+                  {additionalDocsFile ? (
+                    <span className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      {additionalDocsFile.name}
+                    </span>
+                  ) : (
+                    'Upload Documents (PDF, DOC, DOCX)'
+                  )}
                 </Button>
               </label>
             </div>
           </div>
 
           <div className="flex gap-4 pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Submitting...' : 'Apply'}
+              {loading ? uploadProgress || 'Submitting...' : 'Apply'}
             </Button>
           </div>
         </form>

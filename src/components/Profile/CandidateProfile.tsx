@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
@@ -7,7 +6,7 @@ import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Badge } from '../ui/badge';
-import { Upload, Download, User, MapPin, Phone, Mail, GraduationCap, Briefcase, Award } from 'lucide-react';
+import { Upload, Download, User, MapPin, Phone, Mail, GraduationCap, Briefcase, Award, FileText, AlertCircle } from 'lucide-react';
 import { useCandidate } from '@/hooks/useCandidate';
 import { toast } from 'sonner';
 
@@ -15,6 +14,7 @@ const CandidateProfile = () => {
   const { profile, loading, updateProfile, uploadFile } = useCandidate();
   const [newSkill, setNewSkill] = useState('');
   const [isLookingForJob, setIsLookingForJob] = useState(true);
+  const [uploadProgress, setUploadProgress] = useState<string>('');
 
   // Form states for each section
   const [personalDetails, setPersonalDetails] = useState({
@@ -67,17 +67,42 @@ const CandidateProfile = () => {
     }
   };
 
+  const validateResumeFile = (file: File) => {
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    
+    if (file.size > maxSize) {
+      toast.error('File size must be less than 10MB');
+      return false;
+    }
+    
+    if (file.type !== 'application/pdf') {
+      toast.error('Please upload a PDF file only');
+      return false;
+    }
+    
+    return true;
+  };
+
   const handleResumeUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file && file.type === 'application/pdf') {
-      try {
-        const resumeUrl = await uploadFile(file, 'resumes', 'profiles/');
-        await updateProfile({ resume_url: resumeUrl });
-      } catch (error) {
-        console.error('Error uploading resume:', error);
-      }
-    } else {
-      toast.error('Please upload a PDF file only');
+    if (!file) return;
+
+    if (!validateResumeFile(file)) {
+      event.target.value = ''; // Clear the input
+      return;
+    }
+
+    try {
+      setUploadProgress('Uploading resume...');
+      const resumeUrl = await uploadFile(file, 'resumes', 'profiles/');
+      await updateProfile({ resume_url: resumeUrl });
+      toast.success('Resume uploaded successfully');
+    } catch (error) {
+      console.error('Error uploading resume:', error);
+      toast.error('Failed to upload resume');
+    } finally {
+      setUploadProgress('');
+      event.target.value = ''; // Clear the input
     }
   };
 
@@ -112,7 +137,14 @@ const CandidateProfile = () => {
   };
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+          <p>Loading profile...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -256,7 +288,9 @@ const CandidateProfile = () => {
                 />
               </div>
 
-              <Button onClick={handleUpdateDetails}>Update Details</Button>
+              <Button onClick={() => updateProfile({ name: personalDetails.name, phone: personalDetails.phone })}>
+                Update Details
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -279,7 +313,9 @@ const CandidateProfile = () => {
                     onChange={(e) => setLocationData(e.target.value)}
                   />
                 </div>
-                <Button onClick={handleUpdateLocation}>Update Location</Button>
+                <Button onClick={() => updateProfile({ location: locationData })}>
+                  Update Location
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -294,6 +330,13 @@ const CandidateProfile = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
+              {uploadProgress && (
+                <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
+                  <AlertCircle className="h-4 w-4 text-blue-600" />
+                  <span className="text-sm text-blue-800">{uploadProgress}</span>
+                </div>
+              )}
+              
               {/* Resume Upload */}
               <div>
                 <Label>Resume Upload (PDF only)</Label>
@@ -306,9 +349,9 @@ const CandidateProfile = () => {
                     id="resume-upload"
                   />
                   <label htmlFor="resume-upload">
-                    <Button variant="outline" className="cursor-pointer">
+                    <Button variant="outline" className="cursor-pointer" disabled={!!uploadProgress}>
                       <Upload className="h-4 w-4 mr-2" />
-                      Upload Resume
+                      {uploadProgress ? uploadProgress : 'Upload Resume'}
                     </Button>
                   </label>
                   {profile?.resume_url && (
@@ -318,18 +361,24 @@ const CandidateProfile = () => {
                     </Button>
                   )}
                 </div>
+                {profile?.resume_url && (
+                  <div className="mt-2 flex items-center gap-2 text-sm text-green-600">
+                    <FileText className="h-4 w-4" />
+                    Resume uploaded successfully
+                  </div>
+                )}
               </div>
 
               {/* Skills */}
               <div>
                 <Label>Skills</Label>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {profile?.skills.map((skill, index) => (
+                  {profile?.skills?.map((skill, index) => (
                     <Badge key={index} variant="secondary" className="cursor-pointer">
                       {skill}
                       <button
                         onClick={() => handleRemoveSkill(skill)}
-                        className="ml-2 text-xs"
+                        className="ml-2 text-xs hover:text-red-500"
                       >
                         ×
                       </button>
@@ -347,7 +396,9 @@ const CandidateProfile = () => {
                 </div>
               </div>
 
-              <Button onClick={handleUpdateCVSkills}>Update CV & Skills</Button>
+              <Button onClick={() => toast.success('CV & Skills updated successfully')}>
+                Update CV & Skills
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -371,7 +422,9 @@ const CandidateProfile = () => {
                     placeholder="Enter your educational qualifications"
                   />
                 </div>
-                <Button onClick={handleUpdateEducation}>Update Education</Button>
+                <Button onClick={() => updateProfile({ education: educationData })}>
+                  Update Education
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -400,7 +453,9 @@ const CandidateProfile = () => {
                     placeholder="Enter license number" 
                   />
                 </div>
-                <Button onClick={handleUpdateLicense}>Update License</Button>
+                <Button onClick={() => updateProfile({ license_type: licenseData.type, license_number: licenseData.number })}>
+                  Update License
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -425,7 +480,9 @@ const CandidateProfile = () => {
                     placeholder="Describe your work experience"
                   />
                 </div>
-                <Button onClick={handleUpdateExperience}>Update Experience</Button>
+                <Button onClick={() => updateProfile({ experience: experienceData })}>
+                  Update Experience
+                </Button>
               </div>
             </CardContent>
           </Card>

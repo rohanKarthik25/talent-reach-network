@@ -37,13 +37,43 @@ export const useCandidate = () => {
         .eq('user_id', user?.id)
         .single();
 
-      if (error) throw error;
-      setProfile(data);
+      if (error) {
+        console.error('Error fetching profile:', error);
+        // If no profile exists, create one
+        if (error.code === 'PGRST116') {
+          await createProfile();
+        } else {
+          throw error;
+        }
+      } else {
+        setProfile(data);
+      }
     } catch (error) {
       console.error('Error fetching profile:', error);
       toast.error('Failed to load profile');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const createProfile = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('candidates')
+        .insert({
+          user_id: user?.id,
+          name: user?.email || 'New User',
+          skills: []
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      setProfile(data);
+      toast.success('Profile created successfully');
+    } catch (error) {
+      console.error('Error creating profile:', error);
+      toast.error('Failed to create profile');
     }
   };
 
@@ -66,23 +96,37 @@ export const useCandidate = () => {
 
   const uploadFile = async (file: File, bucket: string, folder: string = '') => {
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${folder}${Date.now()}.${fileExt}`;
+      if (!user) throw new Error('User not authenticated');
       
-      const { error: uploadError } = await supabase.storage
+      // Create a unique filename with user ID
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${folder}${Date.now()}.${fileExt}`;
+      
+      console.log('Uploading file:', fileName, 'to bucket:', bucket);
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(fileName, file);
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw uploadError;
+      }
 
-      const { data } = supabase.storage
+      console.log('Upload successful:', uploadData);
+
+      const { data: urlData } = supabase.storage
         .from(bucket)
         .getPublicUrl(fileName);
 
-      return data.publicUrl;
+      console.log('Public URL:', urlData.publicUrl);
+      return urlData.publicUrl;
     } catch (error) {
       console.error('Error uploading file:', error);
-      toast.error('Failed to upload file');
+      toast.error(`Failed to upload file: ${error.message}`);
       throw error;
     }
   };
