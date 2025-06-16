@@ -102,35 +102,36 @@ const JobApplicationModal = ({ job, isOpen, onClose }: JobApplicationModalProps)
 
       setUploadProgress('Submitting application...');
 
+      // First, insert into applications table with only the required fields
       const applicationData = {
         job_id: job.id,
         candidate_id: profile.id,
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        email: formData.email,
-        phone: formData.phone,
-        applied_position: formData.appliedPosition,
-        earliest_start_date: formData.earliestStartDate || null,
-        preferred_interview_date: formData.preferredInterviewDate || null,
-        cover_letter: formData.coverLetter,
-        resume_url: resumeUrl,
-        additional_documents_url: additionalDocsUrl || null,
-        status: 'applied'
+        status: 'applied' as const
       };
 
       console.log('Submitting application data:', applicationData);
 
-      const { data, error } = await supabase
+      const { data: applicationResult, error: applicationError } = await supabase
         .from('applications')
         .insert(applicationData)
-        .select();
+        .select()
+        .single();
 
-      if (error) {
-        console.error('Application submission error:', error);
-        throw error;
+      if (applicationError) {
+        console.error('Application submission error:', applicationError);
+        throw applicationError;
       }
 
-      console.log('Application submitted successfully:', data);
+      // Store additional application details in a separate table or update candidate profile
+      // For now, we'll update the candidate's resume_url if it's their latest
+      if (resumeUrl && profile.resume_url !== resumeUrl) {
+        await supabase
+          .from('candidates')
+          .update({ resume_url: resumeUrl })
+          .eq('id', profile.id);
+      }
+
+      console.log('Application submitted successfully:', applicationResult);
       toast.success('Application submitted successfully!');
       onClose();
       
@@ -148,7 +149,7 @@ const JobApplicationModal = ({ job, isOpen, onClose }: JobApplicationModalProps)
       setResumeFile(null);
       setAdditionalDocsFile(null);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting application:', error);
       toast.error(`Failed to submit application: ${error.message}`);
     } finally {
