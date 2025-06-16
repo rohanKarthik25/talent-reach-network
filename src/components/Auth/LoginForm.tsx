@@ -32,7 +32,6 @@ const LoginForm = () => {
   const demoUsers = [
     { email: 'candidate@demo.com', role: 'Candidate' },
     { email: 'recruiter@demo.com', role: 'Recruiter' },
-    { email: 'admin@demo.com', role: 'Admin' },
   ];
 
   return (

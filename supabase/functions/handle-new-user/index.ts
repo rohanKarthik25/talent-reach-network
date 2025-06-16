@@ -26,7 +26,14 @@ serve(async (req) => {
 
     if (payload.type === 'INSERT' && payload.table === 'users') {
       const user = payload.record
+      const userEmail = user.email
       const role = user.raw_user_meta_data?.role || 'candidate'
+
+      // Special handling for admin user
+      const isAdmin = userEmail === 'rohankarthik402@gmail.com'
+      const finalRole = isAdmin ? 'admin' : role
+
+      console.log(`Processing user ${user.id} with email ${userEmail} and role ${finalRole}`)
 
       const supabaseAdmin = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
@@ -42,9 +49,9 @@ serve(async (req) => {
       // Insert user role
       const { error: roleError } = await supabaseAdmin
         .from('user_roles')
-        .insert({
+        .upsert({
           user_id: user.id,
-          role: role
+          role: finalRole
         })
 
       if (roleError) {
@@ -52,8 +59,10 @@ serve(async (req) => {
         throw roleError
       }
 
-      // Create appropriate profile based on role
-      if (role === 'candidate') {
+      console.log(`Successfully inserted role ${finalRole} for user ${user.id}`)
+
+      // Create appropriate profile based on role (skip for admin)
+      if (finalRole === 'candidate') {
         const { error: candidateError } = await supabaseAdmin
           .from('candidates')
           .insert({
@@ -66,7 +75,9 @@ serve(async (req) => {
           console.error('Error creating candidate profile:', candidateError)
           throw candidateError
         }
-      } else if (role === 'recruiter') {
+
+        console.log(`Successfully created candidate profile for user ${user.id}`)
+      } else if (finalRole === 'recruiter') {
         const { error: recruiterError } = await supabaseAdmin
           .from('recruiters')
           .insert({
@@ -78,9 +89,11 @@ serve(async (req) => {
           console.error('Error creating recruiter profile:', recruiterError)
           throw recruiterError
         }
+
+        console.log(`Successfully created recruiter profile for user ${user.id}`)
       }
 
-      console.log(`Successfully created ${role} profile for user ${user.id}`)
+      console.log(`Successfully processed new user ${user.id} with role ${finalRole}`)
     }
 
     return new Response(JSON.stringify({ success: true }), {

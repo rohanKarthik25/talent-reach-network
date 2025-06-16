@@ -45,25 +45,51 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(session);
         
         if (session?.user) {
-          // Fetch user role from user_roles table
-          const { data: userRole, error } = await supabase
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', session.user.id)
-            .single();
-
-          if (error) {
-            console.error('Error fetching user role:', error);
-          }
-
-          const userData: User = {
-            id: session.user.id,
-            email: session.user.email || '',
-            role: userRole?.role || 'candidate',
-            created_at: session.user.created_at || new Date().toISOString(),
-          };
+          // Check if user is admin
+          const isAdmin = session.user.email === 'rohankarthik402@gmail.com';
           
-          setUser(userData);
+          if (isAdmin) {
+            // Handle admin user
+            const userData: User = {
+              id: session.user.id,
+              email: session.user.email || '',
+              role: 'admin',
+              created_at: session.user.created_at || new Date().toISOString(),
+            };
+            setUser(userData);
+            
+            // Ensure admin role exists in database
+            const { error: roleError } = await supabase
+              .from('user_roles')
+              .upsert({
+                user_id: session.user.id,
+                role: 'admin'
+              });
+            
+            if (roleError) {
+              console.error('Error setting admin role:', roleError);
+            }
+          } else {
+            // Fetch user role from user_roles table for non-admin users
+            const { data: userRole, error } = await supabase
+              .from('user_roles')
+              .select('role')
+              .eq('user_id', session.user.id)
+              .single();
+
+            if (error && error.code !== 'PGRST116') {
+              console.error('Error fetching user role:', error);
+            }
+
+            const userData: User = {
+              id: session.user.id,
+              email: session.user.email || '',
+              role: userRole?.role || 'candidate',
+              created_at: session.user.created_at || new Date().toISOString(),
+            };
+            
+            setUser(userData);
+          }
         } else {
           setUser(null);
         }
@@ -110,7 +136,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const register = async (email: string, password: string, role: UserRole) => {
     setLoading(true);
     try {
-      const redirectUrl = `${window.location.origin}/`;
+      const redirectUrl = `${window.location.origin}/login`;
       
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -131,8 +157,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (data.user && !data.session) {
         toast.success('Please check your email to confirm your account!');
+        // Redirect to login page after registration
+        window.location.href = '/login';
       } else {
         toast.success('Account created successfully!');
+        // If session exists, redirect to dashboard
+        window.location.href = '/dashboard';
       }
     } catch (error: any) {
       console.error('Registration failed:', error);
