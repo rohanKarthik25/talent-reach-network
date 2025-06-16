@@ -45,11 +45,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(session);
         
         if (session?.user) {
-          // Check if user is admin
+          // Check if user is admin by email
           const isAdmin = session.user.email === 'rohankarthik402@gmail.com';
           
           if (isAdmin) {
-            // Handle admin user
+            // Handle admin user - create immediately without database lookup
             const userData: User = {
               id: session.user.id,
               email: session.user.email || '',
@@ -57,50 +57,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               created_at: session.user.created_at || new Date().toISOString(),
             };
             setUser(userData);
-            
-            // Ensure admin role exists in database (don't wait for response)
-            setTimeout(() => {
-              supabase
-                .from('user_roles')
-                .upsert({
-                  user_id: session.user.id,
-                  role: 'admin'
-                })
-                .then(({ error }) => {
-                  if (error) {
-                    console.log('Note: Could not set admin role in database:', error.message);
-                  }
-                });
-            }, 0);
+            console.log('Admin user authenticated:', userData);
           } else {
-            // Fetch user role from user_roles table for non-admin users
+            // For non-admin users, fetch role from database with timeout
             let userRole: UserRole = 'candidate'; // Default fallback
             
             try {
+              // Add timeout to prevent hanging
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+              
               const { data: userRoleData, error } = await supabase
                 .from('user_roles')
                 .select('role')
                 .eq('user_id', session.user.id)
-                .maybeSingle();
+                .maybeSingle()
+                .abortSignal(controller.signal);
+
+              clearTimeout(timeoutId);
 
               if (!error && userRoleData?.role) {
                 userRole = userRoleData.role as UserRole;
+                console.log('Found user role:', userRole);
               } else {
-                // If no role found, create a default one
-                console.log('No role found, creating default candidate role');
-                const { error: insertError } = await supabase
-                  .from('user_roles')
-                  .insert({
-                    user_id: session.user.id,
-                    role: 'candidate'
-                  });
-                
-                if (insertError) {
-                  console.log('Could not create default role:', insertError.message);
-                }
+                console.log('No role found or error, using default candidate role');
               }
             } catch (roleError) {
-              console.log('Error fetching user role:', roleError);
+              console.log('Error fetching user role (using default):', roleError);
             }
 
             const userData: User = {
@@ -111,6 +94,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             };
             
             setUser(userData);
+            console.log('User authenticated:', userData);
           }
         } else {
           setUser(null);
@@ -134,6 +118,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
+      console.log('Attempting login for:', email);
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -146,6 +132,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       if (data.user) {
+        console.log('Login successful for:', email);
         toast.success('Logged in successfully!');
       }
     } catch (error: any) {

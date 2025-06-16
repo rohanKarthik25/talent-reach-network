@@ -46,7 +46,7 @@ serve(async (req) => {
         }
       )
 
-      // First, try to create the user_roles table if it doesn't exist
+      // Create user_roles table if it doesn't exist
       try {
         const { error: createTableError } = await supabaseAdmin.rpc('exec_sql', {
           sql: `
@@ -75,7 +75,7 @@ serve(async (req) => {
         console.log('Table setup note:', tableError)
       }
 
-      // Insert user role
+      // Insert user role - this is critical for admin access
       const { error: roleError } = await supabaseAdmin
         .from('user_roles')
         .upsert({
@@ -85,106 +85,107 @@ serve(async (req) => {
 
       if (roleError) {
         console.error('Error inserting user role:', roleError)
-        // Don't throw error, continue with profile creation
       } else {
         console.log(`Successfully inserted role ${finalRole} for user ${user.id}`)
       }
 
-      // Create appropriate profile based on role (skip for admin)
-      if (finalRole === 'candidate') {
-        // Ensure candidates table exists
-        try {
-          await supabaseAdmin.rpc('exec_sql', {
-            sql: `
-              CREATE TABLE IF NOT EXISTS public.candidates (
-                id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
-                user_id uuid NOT NULL,
-                name text,
-                phone text,
-                location text,
-                education text,
-                experience text,
-                skills text[] DEFAULT '{}',
-                resume_url text,
-                license_type text,
-                license_number text,
-                created_at timestamp with time zone DEFAULT now(),
-                updated_at timestamp with time zone DEFAULT now()
-              );
-              
-              ALTER TABLE public.candidates ENABLE ROW LEVEL SECURITY;
-              
-              CREATE POLICY IF NOT EXISTS "Users can view their own candidate profile" ON public.candidates
-              FOR SELECT USING (auth.uid() = user_id);
-              
-              CREATE POLICY IF NOT EXISTS "Users can update their own candidate profile" ON public.candidates
-              FOR UPDATE USING (auth.uid() = user_id);
-              
-              CREATE POLICY IF NOT EXISTS "Users can insert their own candidate profile" ON public.candidates
-              FOR INSERT WITH CHECK (auth.uid() = user_id);
-            `
-          })
-        } catch (tableError) {
-          console.log('Candidates table setup note:', tableError)
-        }
+      // Create profile only for non-admin users
+      if (finalRole !== 'admin') {
+        if (finalRole === 'candidate') {
+          // Create candidates table and profile
+          try {
+            await supabaseAdmin.rpc('exec_sql', {
+              sql: `
+                CREATE TABLE IF NOT EXISTS public.candidates (
+                  id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+                  user_id uuid NOT NULL,
+                  name text,
+                  phone text,
+                  location text,
+                  education text,
+                  experience text,
+                  skills text[] DEFAULT '{}',
+                  resume_url text,
+                  license_type text,
+                  license_number text,
+                  created_at timestamp with time zone DEFAULT now(),
+                  updated_at timestamp with time zone DEFAULT now()
+                );
+                
+                ALTER TABLE public.candidates ENABLE ROW LEVEL SECURITY;
+                
+                CREATE POLICY IF NOT EXISTS "Users can view their own candidate profile" ON public.candidates
+                FOR SELECT USING (auth.uid() = user_id);
+                
+                CREATE POLICY IF NOT EXISTS "Users can update their own candidate profile" ON public.candidates
+                FOR UPDATE USING (auth.uid() = user_id);
+                
+                CREATE POLICY IF NOT EXISTS "Users can insert their own candidate profile" ON public.candidates
+                FOR INSERT WITH CHECK (auth.uid() = user_id);
+              `
+            })
 
-        const { error: candidateError } = await supabaseAdmin
-          .from('candidates')
-          .insert({
-            user_id: user.id,
-            name: user.raw_user_meta_data?.name || user.email?.split('@')[0] || 'New User',
-            skills: []
-          })
+            const { error: candidateError } = await supabaseAdmin
+              .from('candidates')
+              .insert({
+                user_id: user.id,
+                name: user.raw_user_meta_data?.name || user.email?.split('@')[0] || 'New User',
+                skills: []
+              })
 
-        if (candidateError) {
-          console.error('Error creating candidate profile:', candidateError)
-        } else {
-          console.log(`Successfully created candidate profile for user ${user.id}`)
-        }
-      } else if (finalRole === 'recruiter') {
-        // Ensure recruiters table exists
-        try {
-          await supabaseAdmin.rpc('exec_sql', {
-            sql: `
-              CREATE TABLE IF NOT EXISTS public.recruiters (
-                id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
-                user_id uuid NOT NULL,
-                company_name text,
-                industry text,
-                description text,
-                location text,
-                logo_url text,
-                created_at timestamp with time zone DEFAULT now(),
-                updated_at timestamp with time zone DEFAULT now()
-              );
-              
-              ALTER TABLE public.recruiters ENABLE ROW LEVEL SECURITY;
-              
-              CREATE POLICY IF NOT EXISTS "Users can view their own recruiter profile" ON public.recruiters
-              FOR SELECT USING (auth.uid() = user_id);
-              
-              CREATE POLICY IF NOT EXISTS "Users can update their own recruiter profile" ON public.recruiters
-              FOR UPDATE USING (auth.uid() = user_id);
-              
-              CREATE POLICY IF NOT EXISTS "Users can insert their own recruiter profile" ON public.recruiters
-              FOR INSERT WITH CHECK (auth.uid() = user_id);
-            `
-          })
-        } catch (tableError) {
-          console.log('Recruiters table setup note:', tableError)
-        }
+            if (candidateError) {
+              console.error('Error creating candidate profile:', candidateError)
+            } else {
+              console.log(`Successfully created candidate profile for user ${user.id}`)
+            }
+          } catch (error) {
+            console.log('Candidate profile creation note:', error)
+          }
+        } else if (finalRole === 'recruiter') {
+          // Create recruiters table and profile
+          try {
+            await supabaseAdmin.rpc('exec_sql', {
+              sql: `
+                CREATE TABLE IF NOT EXISTS public.recruiters (
+                  id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+                  user_id uuid NOT NULL,
+                  company_name text,
+                  industry text,
+                  description text,
+                  location text,
+                  logo_url text,
+                  created_at timestamp with time zone DEFAULT now(),
+                  updated_at timestamp with time zone DEFAULT now()
+                );
+                
+                ALTER TABLE public.recruiters ENABLE ROW LEVEL SECURITY;
+                
+                CREATE POLICY IF NOT EXISTS "Users can view their own recruiter profile" ON public.recruiters
+                FOR SELECT USING (auth.uid() = user_id);
+                
+                CREATE POLICY IF NOT EXISTS "Users can update their own recruiter profile" ON public.recruiters
+                FOR UPDATE USING (auth.uid() = user_id);
+                
+                CREATE POLICY IF NOT EXISTS "Users can insert their own recruiter profile" ON public.recruiters
+                FOR INSERT WITH CHECK (auth.uid() = user_id);
+              `
+            })
 
-        const { error: recruiterError } = await supabaseAdmin
-          .from('recruiters')
-          .insert({
-            user_id: user.id,
-            company_name: user.raw_user_meta_data?.company_name || 'New Company'
-          })
+            const { error: recruiterError } = await supabaseAdmin
+              .from('recruiters')
+              .insert({
+                user_id: user.id,
+                company_name: user.raw_user_meta_data?.company_name || 'New Company'
+              })
 
-        if (recruiterError) {
-          console.error('Error creating recruiter profile:', recruiterError)
-        } else {
-          console.log(`Successfully created recruiter profile for user ${user.id}`)
+            if (recruiterError) {
+              console.error('Error creating recruiter profile:', recruiterError)
+            } else {
+              console.log(`Successfully created recruiter profile for user ${user.id}`)
+            }
+          } catch (error) {
+            console.log('Recruiter profile creation note:', error)
+          }
         }
       }
 
@@ -199,7 +200,7 @@ serve(async (req) => {
     console.error('Error in webhook handler:', error)
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200, // Return 200 to prevent Supabase from retrying
+      status: 200,
     })
   }
 })
