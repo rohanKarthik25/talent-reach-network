@@ -46,6 +46,35 @@ serve(async (req) => {
         }
       )
 
+      // First, try to create the user_roles table if it doesn't exist
+      try {
+        const { error: createTableError } = await supabaseAdmin.rpc('exec_sql', {
+          sql: `
+            CREATE TABLE IF NOT EXISTS public.user_roles (
+              id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+              user_id uuid NOT NULL,
+              role text NOT NULL DEFAULT 'candidate',
+              created_at timestamp with time zone DEFAULT now(),
+              updated_at timestamp with time zone DEFAULT now()
+            );
+            
+            ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+            
+            CREATE POLICY IF NOT EXISTS "Users can view their own role" ON public.user_roles
+            FOR SELECT USING (auth.uid() = user_id);
+            
+            CREATE POLICY IF NOT EXISTS "Users can insert their own role" ON public.user_roles
+            FOR INSERT WITH CHECK (auth.uid() = user_id);
+          `
+        })
+        
+        if (createTableError) {
+          console.log('Table creation note:', createTableError.message)
+        }
+      } catch (tableError) {
+        console.log('Table setup note:', tableError)
+      }
+
       // Insert user role
       const { error: roleError } = await supabaseAdmin
         .from('user_roles')
@@ -56,13 +85,49 @@ serve(async (req) => {
 
       if (roleError) {
         console.error('Error inserting user role:', roleError)
-        throw roleError
+        // Don't throw error, continue with profile creation
+      } else {
+        console.log(`Successfully inserted role ${finalRole} for user ${user.id}`)
       }
-
-      console.log(`Successfully inserted role ${finalRole} for user ${user.id}`)
 
       // Create appropriate profile based on role (skip for admin)
       if (finalRole === 'candidate') {
+        // Ensure candidates table exists
+        try {
+          await supabaseAdmin.rpc('exec_sql', {
+            sql: `
+              CREATE TABLE IF NOT EXISTS public.candidates (
+                id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+                user_id uuid NOT NULL,
+                name text,
+                phone text,
+                location text,
+                education text,
+                experience text,
+                skills text[] DEFAULT '{}',
+                resume_url text,
+                license_type text,
+                license_number text,
+                created_at timestamp with time zone DEFAULT now(),
+                updated_at timestamp with time zone DEFAULT now()
+              );
+              
+              ALTER TABLE public.candidates ENABLE ROW LEVEL SECURITY;
+              
+              CREATE POLICY IF NOT EXISTS "Users can view their own candidate profile" ON public.candidates
+              FOR SELECT USING (auth.uid() = user_id);
+              
+              CREATE POLICY IF NOT EXISTS "Users can update their own candidate profile" ON public.candidates
+              FOR UPDATE USING (auth.uid() = user_id);
+              
+              CREATE POLICY IF NOT EXISTS "Users can insert their own candidate profile" ON public.candidates
+              FOR INSERT WITH CHECK (auth.uid() = user_id);
+            `
+          })
+        } catch (tableError) {
+          console.log('Candidates table setup note:', tableError)
+        }
+
         const { error: candidateError } = await supabaseAdmin
           .from('candidates')
           .insert({
@@ -73,11 +138,42 @@ serve(async (req) => {
 
         if (candidateError) {
           console.error('Error creating candidate profile:', candidateError)
-          throw candidateError
+        } else {
+          console.log(`Successfully created candidate profile for user ${user.id}`)
+        }
+      } else if (finalRole === 'recruiter') {
+        // Ensure recruiters table exists
+        try {
+          await supabaseAdmin.rpc('exec_sql', {
+            sql: `
+              CREATE TABLE IF NOT EXISTS public.recruiters (
+                id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+                user_id uuid NOT NULL,
+                company_name text,
+                industry text,
+                description text,
+                location text,
+                logo_url text,
+                created_at timestamp with time zone DEFAULT now(),
+                updated_at timestamp with time zone DEFAULT now()
+              );
+              
+              ALTER TABLE public.recruiters ENABLE ROW LEVEL SECURITY;
+              
+              CREATE POLICY IF NOT EXISTS "Users can view their own recruiter profile" ON public.recruiters
+              FOR SELECT USING (auth.uid() = user_id);
+              
+              CREATE POLICY IF NOT EXISTS "Users can update their own recruiter profile" ON public.recruiters
+              FOR UPDATE USING (auth.uid() = user_id);
+              
+              CREATE POLICY IF NOT EXISTS "Users can insert their own recruiter profile" ON public.recruiters
+              FOR INSERT WITH CHECK (auth.uid() = user_id);
+            `
+          })
+        } catch (tableError) {
+          console.log('Recruiters table setup note:', tableError)
         }
 
-        console.log(`Successfully created candidate profile for user ${user.id}`)
-      } else if (finalRole === 'recruiter') {
         const { error: recruiterError } = await supabaseAdmin
           .from('recruiters')
           .insert({
@@ -87,10 +183,9 @@ serve(async (req) => {
 
         if (recruiterError) {
           console.error('Error creating recruiter profile:', recruiterError)
-          throw recruiterError
+        } else {
+          console.log(`Successfully created recruiter profile for user ${user.id}`)
         }
-
-        console.log(`Successfully created recruiter profile for user ${user.id}`)
       }
 
       console.log(`Successfully processed new user ${user.id} with role ${finalRole}`)
@@ -104,7 +199,7 @@ serve(async (req) => {
     console.error('Error in webhook handler:', error)
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
+      status: 200, // Return 200 to prevent Supabase from retrying
     })
   }
 })

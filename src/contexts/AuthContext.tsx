@@ -58,33 +58,55 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             };
             setUser(userData);
             
-            // Ensure admin role exists in database
-            const { error: roleError } = await supabase
-              .from('user_roles')
-              .upsert({
-                user_id: session.user.id,
-                role: 'admin'
-              });
-            
-            if (roleError) {
-              console.error('Error setting admin role:', roleError);
-            }
+            // Ensure admin role exists in database (don't wait for response)
+            setTimeout(() => {
+              supabase
+                .from('user_roles')
+                .upsert({
+                  user_id: session.user.id,
+                  role: 'admin'
+                })
+                .then(({ error }) => {
+                  if (error) {
+                    console.log('Note: Could not set admin role in database:', error.message);
+                  }
+                });
+            }, 0);
           } else {
             // Fetch user role from user_roles table for non-admin users
-            const { data: userRole, error } = await supabase
-              .from('user_roles')
-              .select('role')
-              .eq('user_id', session.user.id)
-              .single();
+            let userRole: UserRole = 'candidate'; // Default fallback
+            
+            try {
+              const { data: userRoleData, error } = await supabase
+                .from('user_roles')
+                .select('role')
+                .eq('user_id', session.user.id)
+                .maybeSingle();
 
-            if (error && error.code !== 'PGRST116') {
-              console.error('Error fetching user role:', error);
+              if (!error && userRoleData?.role) {
+                userRole = userRoleData.role as UserRole;
+              } else {
+                // If no role found, create a default one
+                console.log('No role found, creating default candidate role');
+                const { error: insertError } = await supabase
+                  .from('user_roles')
+                  .insert({
+                    user_id: session.user.id,
+                    role: 'candidate'
+                  });
+                
+                if (insertError) {
+                  console.log('Could not create default role:', insertError.message);
+                }
+              }
+            } catch (roleError) {
+              console.log('Error fetching user role:', roleError);
             }
 
             const userData: User = {
               id: session.user.id,
               email: session.user.email || '',
-              role: userRole?.role || 'candidate',
+              role: userRole,
               created_at: session.user.created_at || new Date().toISOString(),
             };
             
@@ -100,11 +122,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        // The onAuthStateChange handler will be called automatically
-      } else {
+      if (!session) {
         setLoading(false);
       }
+      // The onAuthStateChange handler will be called automatically for existing sessions
     });
 
     return () => subscription.unsubscribe();
@@ -120,13 +141,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (error) {
         console.error('Login error:', error);
-        toast.error(error.message);
+        toast.error(error.message || 'Login failed');
         throw error;
       }
 
-      toast.success('Logged in successfully!');
+      if (data.user) {
+        toast.success('Logged in successfully!');
+      }
     } catch (error: any) {
       console.error('Login failed:', error);
+      toast.error(error.message || 'Login failed');
       throw error;
     } finally {
       setLoading(false);
@@ -151,21 +175,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (error) {
         console.error('Registration error:', error);
-        toast.error(error.message);
+        toast.error(error.message || 'Registration failed');
         throw error;
       }
 
       if (data.user && !data.session) {
         toast.success('Please check your email to confirm your account!');
-        // Redirect to login page after registration
-        window.location.href = '/login';
-      } else {
+        // Always redirect to login page after registration
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 1000);
+      } else if (data.session) {
         toast.success('Account created successfully!');
-        // If session exists, redirect to dashboard
-        window.location.href = '/dashboard';
+        // If session exists immediately, redirect to dashboard
+        setTimeout(() => {
+          window.location.href = '/dashboard';
+        }, 1000);
       }
     } catch (error: any) {
       console.error('Registration failed:', error);
+      toast.error(error.message || 'Registration failed');
       throw error;
     } finally {
       setLoading(false);
@@ -177,13 +206,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('Logout error:', error);
-        toast.error(error.message);
+        toast.error(error.message || 'Logout failed');
       } else {
         toast.success('Logged out successfully!');
         window.location.href = '/login';
       }
     } catch (error: any) {
       console.error('Logout failed:', error);
+      toast.error('Logout failed');
     }
   };
 
