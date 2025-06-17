@@ -67,7 +67,7 @@ const JobApplicationModal = ({ job, isOpen, onClose }: JobApplicationModalProps)
 
       setUploadProgress('Submitting application...');
 
-      // First, insert into applications table with only the required fields
+      // Insert into applications table with only the required fields
       const applicationData = {
         job_id: job.id,
         candidate_id: profile.id,
