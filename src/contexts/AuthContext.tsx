@@ -63,18 +63,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             let userRole: UserRole = 'candidate'; // Default fallback
             
             try {
-              // Add timeout to prevent hanging
-              const controller = new AbortController();
-              const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-              
-              const { data: userRoleData, error } = await supabase
+              // Use Promise.race for timeout instead of AbortController
+              const roleQuery = supabase
                 .from('user_roles')
                 .select('role')
                 .eq('user_id', session.user.id)
-                .maybeSingle()
-                .abortSignal(controller.signal);
+                .maybeSingle();
 
-              clearTimeout(timeoutId);
+              const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Timeout')), 5000)
+              );
+
+              const { data: userRoleData, error } = await Promise.race([
+                roleQuery,
+                timeoutPromise
+              ]) as any;
 
               if (!error && userRoleData?.role) {
                 userRole = userRoleData.role as UserRole;
