@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -45,60 +44,44 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(session);
         
         if (session?.user) {
-          // Check if user is admin by email
-          const isAdmin = session.user.email === 'rohankarthik402@gmail.com';
+          // Determine role based on email first
+          let userRole: UserRole = 'candidate'; // Default fallback
           
-          if (isAdmin) {
-            // Handle admin user - create immediately without database lookup
-            const userData: User = {
-              id: session.user.id,
-              email: session.user.email || '',
-              role: 'admin',
-              created_at: session.user.created_at || new Date().toISOString(),
-            };
-            setUser(userData);
-            console.log('Admin user authenticated:', userData);
+          if (session.user.email === 'rohankarthik402@gmail.com') {
+            userRole = 'admin';
+          } else if (session.user.email === 'candidate@demo.com') {
+            userRole = 'candidate';
+          } else if (session.user.email === 'recruiter@demo.com') {
+            userRole = 'recruiter';
           } else {
-            // For non-admin users, fetch role from database with timeout
-            let userRole: UserRole = 'candidate'; // Default fallback
-            
+            // For other users, try to fetch role from database
             try {
-              // Use Promise.race for timeout instead of AbortController
-              const roleQuery = supabase
+              const { data: userRoleData, error } = await supabase
                 .from('user_roles')
                 .select('role')
                 .eq('user_id', session.user.id)
                 .maybeSingle();
 
-              const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Timeout')), 5000)
-              );
-
-              const { data: userRoleData, error } = await Promise.race([
-                roleQuery,
-                timeoutPromise
-              ]) as any;
-
               if (!error && userRoleData?.role) {
                 userRole = userRoleData.role as UserRole;
-                console.log('Found user role:', userRole);
+                console.log('Found user role from database:', userRole);
               } else {
-                console.log('No role found or error, using default candidate role');
+                console.log('No role found in database, using default candidate role');
               }
             } catch (roleError) {
               console.log('Error fetching user role (using default):', roleError);
             }
-
-            const userData: User = {
-              id: session.user.id,
-              email: session.user.email || '',
-              role: userRole,
-              created_at: session.user.created_at || new Date().toISOString(),
-            };
-            
-            setUser(userData);
-            console.log('User authenticated:', userData);
           }
+
+          const userData: User = {
+            id: session.user.id,
+            email: session.user.email || '',
+            role: userRole,
+            created_at: session.user.created_at || new Date().toISOString(),
+          };
+          
+          setUser(userData);
+          console.log('User authenticated:', userData);
         } else {
           setUser(null);
         }
