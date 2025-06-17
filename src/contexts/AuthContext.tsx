@@ -1,25 +1,13 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User as SupabaseUser, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-
-export type UserRole = 'candidate' | 'recruiter' | 'admin';
-
-export interface User {
-  id: string;
-  email: string;
-  role: UserRole;
-  created_at: string;
-}
+import { User, UserRole } from '../types';
 
 interface AuthContextType {
   user: User | null;
-  session: Session | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, role: UserRole) => Promise<void>;
-  logout: () => Promise<void>;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,74 +22,32 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email);
-        setSession(session);
-        
-        if (session?.user) {
-          // Fetch user role from user_roles table
-          const { data: userRole, error } = await supabase
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', session.user.id)
-            .single();
-
-          if (error) {
-            console.error('Error fetching user role:', error);
-          }
-
-          const userData: User = {
-            id: session.user.id,
-            email: session.user.email || '',
-            role: userRole?.role || 'candidate',
-            created_at: session.user.created_at || new Date().toISOString(),
-          };
-          
-          setUser(userData);
-        } else {
-          setUser(null);
-        }
-        
-        setLoading(false);
-      }
-    );
-
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        // The onAuthStateChange handler will be called automatically
-      } else {
-        setLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    // Simulate checking for existing session
+    const savedUser = localStorage.getItem('jobPortalUser');
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
+    }
+    setLoading(false);
   }, []);
 
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      // Mock login - replace with Supabase auth
+      const mockUser: User = {
+        id: '1',
         email,
-        password,
-      });
-
-      if (error) {
-        console.error('Login error:', error);
-        toast.error(error.message);
-        throw error;
-      }
-
-      toast.success('Logged in successfully!');
-    } catch (error: any) {
-      console.error('Login failed:', error);
-      throw error;
+        role: email.includes('admin') ? 'admin' : email.includes('recruiter') ? 'recruiter' : 'candidate',
+        created_at: new Date().toISOString(),
+      };
+      
+      setUser(mockUser);
+      localStorage.setItem('jobPortalUser', JSON.stringify(mockUser));
+    } catch (error) {
+      throw new Error('Login failed');
     } finally {
       setLoading(false);
     }
@@ -110,57 +56,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const register = async (email: string, password: string, role: UserRole) => {
     setLoading(true);
     try {
-      const redirectUrl = `${window.location.origin}/`;
-      
-      const { data, error } = await supabase.auth.signUp({
+      // Mock registration - replace with Supabase auth
+      const newUser: User = {
+        id: Date.now().toString(),
         email,
-        password,
-        options: {
-          emailRedirectTo: redirectUrl,
-          data: {
-            role: role
-          }
-        }
-      });
-
-      if (error) {
-        console.error('Registration error:', error);
-        toast.error(error.message);
-        throw error;
-      }
-
-      if (data.user && !data.session) {
-        toast.success('Please check your email to confirm your account!');
-      } else {
-        toast.success('Account created successfully!');
-      }
-    } catch (error: any) {
-      console.error('Registration failed:', error);
-      throw error;
+        role,
+        created_at: new Date().toISOString(),
+      };
+      
+      setUser(newUser);
+      localStorage.setItem('jobPortalUser', JSON.stringify(newUser));
+    } catch (error) {
+      throw new Error('Registration failed');
     } finally {
       setLoading(false);
     }
   };
 
-  const logout = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('Logout error:', error);
-        toast.error(error.message);
-      } else {
-        toast.success('Logged out successfully!');
-        window.location.href = '/login';
-      }
-    } catch (error: any) {
-      console.error('Logout failed:', error);
-    }
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem('jobPortalUser');
+    // Redirect to login page
+    window.location.href = '/login';
   };
 
   return (
     <AuthContext.Provider value={{
       user,
-      session,
       loading,
       login,
       register,

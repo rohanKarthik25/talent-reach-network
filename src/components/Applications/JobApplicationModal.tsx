@@ -5,12 +5,11 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
-import { FileUpload } from '../ui/file-upload';
 import { Job } from '@/types';
 import { useCandidate } from '@/hooks/useCandidate';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { AlertCircle } from 'lucide-react';
+import { Upload, FileText, AlertCircle } from 'lucide-react';
 
 interface JobApplicationModalProps {
   job: Job;
@@ -34,6 +33,42 @@ const JobApplicationModal = ({ job, isOpen, onClose }: JobApplicationModalProps)
   });
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [additionalDocsFile, setAdditionalDocsFile] = useState<File | null>(null);
+
+  const validateFile = (file: File, allowedTypes: string[]) => {
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    
+    if (file.size > maxSize) {
+      toast.error('File size must be less than 10MB');
+      return false;
+    }
+    
+    if (!allowedTypes.includes(file.type)) {
+      toast.error(`Please upload a file of type: ${allowedTypes.join(', ')}`);
+      return false;
+    }
+    
+    return true;
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>, type: 'resume' | 'docs') => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = type === 'resume' 
+      ? ['application/pdf']
+      : ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+
+    if (validateFile(file, allowedTypes)) {
+      if (type === 'resume') {
+        setResumeFile(file);
+      } else {
+        setAdditionalDocsFile(file);
+      }
+    } else {
+      // Clear the input
+      event.target.value = '';
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -225,32 +260,53 @@ const JobApplicationModal = ({ job, isOpen, onClose }: JobApplicationModalProps)
           <div>
             <Label>Resume Upload (PDF only) *</Label>
             <div className="mt-2">
-              <FileUpload
-                onFileSelect={setResumeFile}
-                onFileRemove={() => setResumeFile(null)}
+              <input
+                type="file"
                 accept=".pdf"
-                maxSize={10}
-                currentFile={resumeFile}
-                currentFileName={resumeFile?.name}
-                placeholder="Drop your resume here to upload"
-                disabled={!!uploadProgress}
+                onChange={(e) => handleFileChange(e, 'resume')}
+                className="hidden"
+                id="resume-upload"
+                required
               />
+              <label htmlFor="resume-upload">
+                <Button type="button" variant="outline" className="cursor-pointer w-full justify-start">
+                  <Upload className="h-4 w-4 mr-2" />
+                  {resumeFile ? (
+                    <span className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      {resumeFile.name}
+                    </span>
+                  ) : (
+                    'Upload Resume (PDF)'
+                  )}
+                </Button>
+              </label>
             </div>
           </div>
 
           <div>
             <Label>Additional Documents</Label>
             <div className="mt-2">
-              <FileUpload
-                onFileSelect={setAdditionalDocsFile}
-                onFileRemove={() => setAdditionalDocsFile(null)}
+              <input
+                type="file"
                 accept=".pdf,.doc,.docx"
-                maxSize={10}
-                currentFile={additionalDocsFile}
-                currentFileName={additionalDocsFile?.name}
-                placeholder="Drop additional documents here to upload"
-                disabled={!!uploadProgress}
+                onChange={(e) => handleFileChange(e, 'docs')}
+                className="hidden"
+                id="docs-upload"
               />
+              <label htmlFor="docs-upload">
+                <Button type="button" variant="outline" className="cursor-pointer w-full justify-start">
+                  <Upload className="h-4 w-4 mr-2" />
+                  {additionalDocsFile ? (
+                    <span className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      {additionalDocsFile.name}
+                    </span>
+                  ) : (
+                    'Upload Documents (PDF, DOC, DOCX)'
+                  )}
+                </Button>
+              </label>
             </div>
           </div>
 
@@ -258,7 +314,7 @@ const JobApplicationModal = ({ job, isOpen, onClose }: JobApplicationModalProps)
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading || !resumeFile}>
+            <Button type="submit" disabled={loading}>
               {loading ? uploadProgress || 'Submitting...' : 'Apply'}
             </Button>
           </div>

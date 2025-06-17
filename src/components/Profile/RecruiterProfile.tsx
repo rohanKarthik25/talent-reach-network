@@ -6,13 +6,9 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { FileUpload } from '../ui/file-upload';
-import { Building, MapPin } from 'lucide-react';
-import { useCandidate } from '@/hooks/useCandidate';
-import { toast } from 'sonner';
+import { Upload, Building, MapPin, Globe } from 'lucide-react';
 
 const RecruiterProfile = () => {
-  const { uploadFile } = useCandidate();
   const [profile, setProfile] = useState({
     company_name: 'Tech Solutions Inc',
     industry: 'Technology',
@@ -21,17 +17,17 @@ const RecruiterProfile = () => {
     logo_url: null
   });
 
-  const handleLogoUpload = async (file: File) => {
-    try {
-      const logoUrl = await uploadFile(file, 'documents', 'company-logos/');
+  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      // Mock upload - replace with Supabase storage
+      console.log('Uploading logo:', file.name);
       setProfile(prev => ({
         ...prev,
-        logo_url: logoUrl
+        logo_url: `/mock-logo-${Date.now()}.png`
       }));
-      toast.success('Logo uploaded successfully');
-    } catch (error) {
-      console.error('Error uploading logo:', error);
-      toast.error('Failed to upload logo');
+    } else {
+      alert('Please upload an image file');
     }
   };
 
@@ -56,16 +52,25 @@ const RecruiterProfile = () => {
           {/* Company Logo */}
           <div>
             <Label>Company Logo</Label>
-            <div className="mt-2">
-              <FileUpload
-                onFileSelect={handleLogoUpload}
-                onFileRemove={() => setProfile(prev => ({ ...prev, logo_url: null }))}
+            <div className="mt-2 flex items-center gap-4">
+              {profile.logo_url && (
+                <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <Building className="h-8 w-8 text-gray-400" />
+                </div>
+              )}
+              <input
+                type="file"
                 accept="image/*"
-                maxSize={5}
-                currentFileUrl={profile.logo_url}
-                currentFileName={profile.logo_url ? 'Company Logo' : undefined}
-                placeholder="Drop your company logo here to upload"
+                onChange={handleLogoUpload}
+                className="hidden"
+                id="logo-upload"
               />
+              <label htmlFor="logo-upload">
+                <Button variant="outline" className="cursor-pointer">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Logo
+                </Button>
+              </label>
             </div>
           </div>
 

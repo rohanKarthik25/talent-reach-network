@@ -6,8 +6,7 @@ import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Badge } from '../ui/badge';
-import { FileUpload } from '../ui/file-upload';
-import { Download, User, MapPin, GraduationCap, Briefcase, Award, FileText, AlertCircle } from 'lucide-react';
+import { Upload, Download, User, MapPin, Phone, Mail, GraduationCap, Briefcase, Award, FileText, AlertCircle } from 'lucide-react';
 import { useCandidate } from '@/hooks/useCandidate';
 import { toast } from 'sonner';
 
@@ -68,7 +67,31 @@ const CandidateProfile = () => {
     }
   };
 
-  const handleResumeUpload = async (file: File) => {
+  const validateResumeFile = (file: File) => {
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    
+    if (file.size > maxSize) {
+      toast.error('File size must be less than 10MB');
+      return false;
+    }
+    
+    if (file.type !== 'application/pdf') {
+      toast.error('Please upload a PDF file only');
+      return false;
+    }
+    
+    return true;
+  };
+
+  const handleResumeUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!validateResumeFile(file)) {
+      event.target.value = ''; // Clear the input
+      return;
+    }
+
     try {
       setUploadProgress('Uploading resume...');
       const resumeUrl = await uploadFile(file, 'resumes', 'profiles/');
@@ -79,6 +102,7 @@ const CandidateProfile = () => {
       toast.error('Failed to upload resume');
     } finally {
       setUploadProgress('');
+      event.target.value = ''; // Clear the input
     }
   };
 
@@ -87,6 +111,29 @@ const CandidateProfile = () => {
       name: personalDetails.name,
       phone: personalDetails.phone
     });
+  };
+
+  const handleUpdateLocation = () => {
+    updateProfile({ location: locationData });
+  };
+
+  const handleUpdateEducation = () => {
+    updateProfile({ education: educationData });
+  };
+
+  const handleUpdateExperience = () => {
+    updateProfile({ experience: experienceData });
+  };
+
+  const handleUpdateLicense = () => {
+    updateProfile({
+      license_type: licenseData.type,
+      license_number: licenseData.number
+    });
+  };
+
+  const handleUpdateCVSkills = () => {
+    toast.success('CV & Skills updated successfully');
   };
 
   if (loading) {
@@ -241,7 +288,7 @@ const CandidateProfile = () => {
                 />
               </div>
 
-              <Button onClick={handleUpdateDetails}>
+              <Button onClick={() => updateProfile({ name: personalDetails.name, phone: personalDetails.phone })}>
                 Update Details
               </Button>
             </CardContent>
@@ -293,25 +340,33 @@ const CandidateProfile = () => {
               {/* Resume Upload */}
               <div>
                 <Label>Resume Upload (PDF only)</Label>
-                <div className="mt-2">
-                  <FileUpload
-                    onFileSelect={handleResumeUpload}
+                <div className="mt-2 flex items-center gap-4">
+                  <input
+                    type="file"
                     accept=".pdf"
-                    maxSize={10}
-                    currentFileUrl={profile?.resume_url}
-                    currentFileName={profile?.resume_url ? 'Current Resume' : undefined}
-                    placeholder="Drop your resume here to upload"
-                    disabled={!!uploadProgress}
+                    onChange={handleResumeUpload}
+                    className="hidden"
+                    id="resume-upload"
                   />
+                  <label htmlFor="resume-upload">
+                    <Button variant="outline" className="cursor-pointer" disabled={!!uploadProgress}>
+                      <Upload className="h-4 w-4 mr-2" />
+                      {uploadProgress ? uploadProgress : 'Upload Resume'}
+                    </Button>
+                  </label>
                   {profile?.resume_url && (
-                    <div className="mt-4">
-                      <Button variant="outline" onClick={() => window.open(profile.resume_url, '_blank')}>
-                        <Download className="h-4 w-4 mr-2" />
-                        Download Current Resume
-                      </Button>
-                    </div>
+                    <Button variant="outline" onClick={() => window.open(profile.resume_url, '_blank')}>
+                      <Download className="h-4 w-4 mr-2" />
+                      Download Current Resume
+                    </Button>
                   )}
                 </div>
+                {profile?.resume_url && (
+                  <div className="mt-2 flex items-center gap-2 text-sm text-green-600">
+                    <FileText className="h-4 w-4" />
+                    Resume uploaded successfully
+                  </div>
+                )}
               </div>
 
               {/* Skills */}
