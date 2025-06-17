@@ -24,32 +24,28 @@ export const useCandidate = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user && user.role === 'candidate') {
+    if (user) {
       fetchProfile();
-    } else {
-      setLoading(false);
     }
   }, [user]);
 
   const fetchProfile = async () => {
     try {
-      console.log('Fetching profile for user:', user?.id);
       const { data, error } = await supabase
         .from('candidates')
         .select('*')
         .eq('user_id', user?.id)
-        .maybeSingle();
+        .single();
 
       if (error) {
         console.error('Error fetching profile:', error);
-        throw error;
-      }
-
-      if (!data) {
-        console.log('No profile found, creating one...');
-        await createProfile();
+        // If no profile exists, create one
+        if (error.code === 'PGRST116') {
+          await createProfile();
+        } else {
+          throw error;
+        }
       } else {
-        console.log('Profile found:', data);
         setProfile(data);
       }
     } catch (error) {
@@ -62,23 +58,17 @@ export const useCandidate = () => {
 
   const createProfile = async () => {
     try {
-      console.log('Creating profile for user:', user?.id);
       const { data, error } = await supabase
         .from('candidates')
         .insert({
           user_id: user?.id,
-          name: user?.email?.split('@')[0] || 'New User',
+          name: user?.email || 'New User',
           skills: []
         })
         .select()
         .single();
 
-      if (error) {
-        console.error('Error creating profile:', error);
-        throw error;
-      }
-      
-      console.log('Profile created:', data);
+      if (error) throw error;
       setProfile(data);
       toast.success('Profile created successfully');
     } catch (error) {
@@ -89,26 +79,18 @@ export const useCandidate = () => {
 
   const updateProfile = async (updates: Partial<CandidateProfile>) => {
     try {
-      console.log('Updating profile with:', updates);
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('candidates')
         .update(updates)
-        .eq('user_id', user?.id)
-        .select()
-        .single();
+        .eq('user_id', user?.id);
 
-      if (error) {
-        console.error('Error updating profile:', error);
-        throw error;
-      }
+      if (error) throw error;
       
-      console.log('Profile updated:', data);
-      setProfile(data);
+      setProfile(prev => prev ? { ...prev, ...updates } : null);
       toast.success('Profile updated successfully');
     } catch (error) {
       console.error('Error updating profile:', error);
       toast.error('Failed to update profile');
-      throw error;
     }
   };
 
@@ -142,7 +124,7 @@ export const useCandidate = () => {
 
       console.log('Public URL:', urlData.publicUrl);
       return urlData.publicUrl;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error uploading file:', error);
       toast.error(`Failed to upload file: ${error.message}`);
       throw error;

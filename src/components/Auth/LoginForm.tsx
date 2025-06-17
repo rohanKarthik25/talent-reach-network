@@ -32,12 +32,8 @@ const LoginForm = () => {
   const demoUsers = [
     { email: 'candidate@demo.com', role: 'Candidate' },
     { email: 'recruiter@demo.com', role: 'Recruiter' },
+    { email: 'admin@demo.com', role: 'Admin' },
   ];
-
-  const handleAdminLogin = () => {
-    setEmail('rohankarthik402@gmail.com');
-    setPassword('kairo1234');
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -113,16 +109,6 @@ const LoginForm = () => {
                   </button>
                 ))}
               </div>
-            </div>
-
-            <div className="mt-4">
-              <button
-                onClick={handleAdminLogin}
-                className="w-full text-left p-2 text-sm bg-blue-50 hover:bg-blue-100 rounded border border-blue-200"
-              >
-                <div className="font-medium text-blue-700">Admin Access</div>
-                <div className="text-blue-600 text-xs">rohankarthik402@gmail.com</div>
-              </button>
             </div>
 
             <div className="mt-6 text-center">

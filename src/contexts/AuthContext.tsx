@@ -45,44 +45,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(session);
         
         if (session?.user) {
-          // Determine role based on email first
-          let userRole: UserRole = 'candidate'; // Default fallback
-          
-          if (session.user.email === 'rohankarthik402@gmail.com') {
-            userRole = 'admin';
-          } else if (session.user.email === 'candidate@demo.com') {
-            userRole = 'candidate';
-          } else if (session.user.email === 'recruiter@demo.com') {
-            userRole = 'recruiter';
-          } else {
-            // For other users, try to fetch role from database
-            try {
-              const { data: userRoleData, error } = await supabase
-                .from('user_roles')
-                .select('role')
-                .eq('user_id', session.user.id)
-                .maybeSingle();
+          // Fetch user role from user_roles table
+          const { data: userRole, error } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', session.user.id)
+            .single();
 
-              if (!error && userRoleData?.role) {
-                userRole = userRoleData.role as UserRole;
-                console.log('Found user role from database:', userRole);
-              } else {
-                console.log('No role found in database, using default candidate role');
-              }
-            } catch (roleError) {
-              console.log('Error fetching user role (using default):', roleError);
-            }
+          if (error) {
+            console.error('Error fetching user role:', error);
           }
 
           const userData: User = {
             id: session.user.id,
             email: session.user.email || '',
-            role: userRole,
+            role: userRole?.role || 'candidate',
             created_at: session.user.created_at || new Date().toISOString(),
           };
           
           setUser(userData);
-          console.log('User authenticated:', userData);
         } else {
           setUser(null);
         }
@@ -93,10 +74,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
+      if (session) {
+        // The onAuthStateChange handler will be called automatically
+      } else {
         setLoading(false);
       }
-      // The onAuthStateChange handler will be called automatically for existing sessions
     });
 
     return () => subscription.unsubscribe();
@@ -105,8 +87,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      console.log('Attempting login for:', email);
-      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -114,17 +94,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (error) {
         console.error('Login error:', error);
-        toast.error(error.message || 'Login failed');
+        toast.error(error.message);
         throw error;
       }
 
-      if (data.user) {
-        console.log('Login successful for:', email);
-        toast.success('Logged in successfully!');
-      }
+      toast.success('Logged in successfully!');
     } catch (error: any) {
       console.error('Login failed:', error);
-      toast.error(error.message || 'Login failed');
       throw error;
     } finally {
       setLoading(false);
@@ -134,7 +110,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const register = async (email: string, password: string, role: UserRole) => {
     setLoading(true);
     try {
-      const redirectUrl = `${window.location.origin}/login`;
+      const redirectUrl = `${window.location.origin}/`;
       
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -149,26 +125,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (error) {
         console.error('Registration error:', error);
-        toast.error(error.message || 'Registration failed');
+        toast.error(error.message);
         throw error;
       }
 
       if (data.user && !data.session) {
         toast.success('Please check your email to confirm your account!');
-        // Always redirect to login page after registration
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 1000);
-      } else if (data.session) {
+      } else {
         toast.success('Account created successfully!');
-        // If session exists immediately, redirect to dashboard
-        setTimeout(() => {
-          window.location.href = '/dashboard';
-        }, 1000);
       }
     } catch (error: any) {
       console.error('Registration failed:', error);
-      toast.error(error.message || 'Registration failed');
       throw error;
     } finally {
       setLoading(false);
@@ -180,14 +147,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('Logout error:', error);
-        toast.error(error.message || 'Logout failed');
+        toast.error(error.message);
       } else {
         toast.success('Logged out successfully!');
         window.location.href = '/login';
       }
     } catch (error: any) {
       console.error('Logout failed:', error);
-      toast.error('Logout failed');
     }
   };
 
