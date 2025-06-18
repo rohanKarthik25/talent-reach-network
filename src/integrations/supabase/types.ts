@@ -13,25 +13,28 @@ export type Database = {
         Row: {
           applied_at: string | null
           candidate_id: string
+          cover_letter: string | null
           id: string
           job_id: string
-          status: Database["public"]["Enums"]["application_status"] | null
+          status: string | null
           updated_at: string | null
         }
         Insert: {
           applied_at?: string | null
           candidate_id: string
+          cover_letter?: string | null
           id?: string
           job_id: string
-          status?: Database["public"]["Enums"]["application_status"] | null
+          status?: string | null
           updated_at?: string | null
         }
         Update: {
           applied_at?: string | null
           candidate_id?: string
+          cover_letter?: string | null
           id?: string
           job_id?: string
-          status?: Database["public"]["Enums"]["application_status"] | null
+          status?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -102,9 +105,7 @@ export type Database = {
       jobs: {
         Row: {
           created_at: string | null
-          experience_level:
-            | Database["public"]["Enums"]["experience_level"]
-            | null
+          experience_level: string | null
           id: string
           job_description: string | null
           location: string | null
@@ -117,9 +118,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
-          experience_level?:
-            | Database["public"]["Enums"]["experience_level"]
-            | null
+          experience_level?: string | null
           id?: string
           job_description?: string | null
           location?: string | null
@@ -132,9 +131,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
-          experience_level?:
-            | Database["public"]["Enums"]["experience_level"]
-            | null
+          experience_level?: string | null
           id?: string
           job_description?: string | null
           location?: string | null
@@ -164,6 +161,7 @@ export type Database = {
           industry: string | null
           location: string | null
           logo_url: string | null
+          name: string
           updated_at: string | null
           user_id: string
         }
@@ -175,6 +173,7 @@ export type Database = {
           industry?: string | null
           location?: string | null
           logo_url?: string | null
+          name?: string
           updated_at?: string | null
           user_id: string
         }
@@ -186,6 +185,7 @@ export type Database = {
           industry?: string | null
           location?: string | null
           logo_url?: string | null
+          name?: string
           updated_at?: string | null
           user_id?: string
         }
@@ -194,25 +194,22 @@ export type Database = {
       user_roles: {
         Row: {
           created_at: string | null
-          email: string
           id: string
-          role: Database["public"]["Enums"]["user_role"]
+          role: string
           updated_at: string | null
           user_id: string
         }
         Insert: {
           created_at?: string | null
-          email: string
           id?: string
-          role?: Database["public"]["Enums"]["user_role"]
+          role: string
           updated_at?: string | null
           user_id: string
         }
         Update: {
           created_at?: string | null
-          email?: string
           id?: string
-          role?: Database["public"]["Enums"]["user_role"]
+          role?: string
           updated_at?: string | null
           user_id?: string
         }
@@ -223,7 +220,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_current_user_role: {
+        Args: Record<PropertyKey, never>
+        Returns: Database["public"]["Enums"]["user_role"]
+      }
     }
     Enums: {
       application_status: "applied" | "under_review" | "rejected" | "hired"

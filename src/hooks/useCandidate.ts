@@ -26,31 +26,26 @@ export const useCandidate = () => {
   useEffect(() => {
     if (user) {
       fetchProfile();
-    } else {
-      setLoading(false);
     }
   }, [user]);
 
   const fetchProfile = async () => {
-    if (!user) return;
-    
     try {
       const { data, error } = await supabase
         .from('candidates')
         .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
+        .eq('user_id', user?.id)
+        .single();
 
       if (error) {
         console.error('Error fetching profile:', error);
-        throw error;
-      }
-
-      if (data) {
-        setProfile(data);
+        if (error.code === 'PGRST116') {
+          await createProfile();
+        } else {
+          throw error;
+        }
       } else {
-        // Create profile if it doesn't exist
-        await createProfile();
+        setProfile(data);
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -61,14 +56,12 @@ export const useCandidate = () => {
   };
 
   const createProfile = async () => {
-    if (!user) return;
-    
     try {
       const { data, error } = await supabase
         .from('candidates')
         .insert({
-          user_id: user.id,
-          name: user.email || 'New User',
+          user_id: user?.id,
+          name: user?.email || 'New User',
           skills: []
         })
         .select()
@@ -84,15 +77,13 @@ export const useCandidate = () => {
   };
 
   const updateProfile = async (updates: Partial<CandidateProfile>) => {
-    if (!user) return;
-    
     try {
       console.log('Updating profile with:', updates);
       
       const { data, error } = await supabase
         .from('candidates')
         .update(updates)
-        .eq('user_id', user.id)
+        .eq('user_id', user?.id)
         .select()
         .single();
 
@@ -110,26 +101,40 @@ export const useCandidate = () => {
     }
   };
 
-  const uploadFile = async (file: File, bucket: string, folder: string): Promise<string> => {
-    if (!user) throw new Error('User not authenticated');
-    
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${folder}${user.id}_${Date.now()}.${fileExt}`;
-    
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .upload(fileName, file);
+  const uploadFile = async (file: File, bucket: string, folder: string = '') => {
+    try {
+      if (!user) throw new Error('User not authenticated');
+      
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${folder}${Date.now()}.${fileExt}`;
+      
+      console.log('Uploading file:', fileName, 'to bucket:', bucket);
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
-    if (error) {
-      console.error('Upload error:', error);
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw uploadError;
+      }
+
+      console.log('Upload successful:', uploadData);
+
+      const { data: urlData } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(fileName);
+
+      console.log('Public URL:', urlData.publicUrl);
+      return urlData.publicUrl;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      toast.error(`Failed to upload file: ${error.message}`);
       throw error;
     }
-
-    const { data: { publicUrl } } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(fileName);
-
-    return publicUrl;
   };
 
   return {

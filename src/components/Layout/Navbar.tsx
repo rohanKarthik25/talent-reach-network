@@ -1,41 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../integrations/supabase/client';
 import { Button } from '../ui/button';
 import { User, LogOut, Briefcase } from 'lucide-react';
-import { UserRole } from '../../types';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
-  const [userRole, setUserRole] = useState<UserRole | null>(null);
-
-  useEffect(() => {
-    if (user) {
-      fetchUserRole();
-    }
-  }, [user]);
-
-  const fetchUserRole = async () => {
-    if (!user) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .single();
-
-      if (error) {
-        console.error('Error fetching user role:', error);
-        return;
-      }
-
-      setUserRole(data.role);
-    } catch (error) {
-      console.error('Error fetching user role:', error);
-    }
-  };
 
   return (
     <nav className="bg-white shadow-sm border-b border-border">
@@ -53,11 +23,9 @@ const Navbar = () => {
               <div className="flex items-center space-x-2">
                 <User className="h-5 w-5 text-muted-foreground" />
                 <span className="text-sm font-medium">{user.email}</span>
-                {userRole && (
-                  <span className="px-2 py-1 text-xs font-medium bg-primary/10 text-primary rounded-full">
-                    {userRole}
-                  </span>
-                )}
+                <span className="px-2 py-1 text-xs font-medium bg-primary/10 text-primary rounded-full">
+                  {user.role}
+                </span>
               </div>
               <Button 
                 variant="outline" 
