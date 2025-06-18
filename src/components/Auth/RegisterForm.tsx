@@ -7,6 +7,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Alert, AlertDescription } from '../ui/alert';
 import { UserRole } from '../../types';
 import { Briefcase } from 'lucide-react';
 
@@ -16,24 +17,42 @@ const RegisterForm = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<UserRole>('candidate');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const { register } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    setSuccess('');
     
     if (password !== confirmPassword) {
-      alert('Passwords do not match');
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long');
       return;
     }
     
     setLoading(true);
     
     try {
-      await register(email, password, role);
-      navigate('/dashboard');
+      const result = await register(email, password, role);
+      
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setSuccess('Account created successfully! You can now sign in.');
+        setTimeout(() => {
+          navigate('/login');
+        }, 2000);
+      }
     } catch (error) {
       console.error('Registration failed:', error);
+      setError('Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -56,12 +75,24 @@ const RegisterForm = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Register</CardTitle>
+            <CardTitle>Create Account</CardTitle>
             <CardDescription>
-              Create your account to access the job portal
+              Sign up to access the job portal
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {error && (
+              <Alert className="mb-4">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            {success && (
+              <Alert className="mb-4">
+                <AlertDescription className="text-green-600">{success}</AlertDescription>
+              </Alert>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <Label htmlFor="email">Email</Label>
@@ -96,7 +127,7 @@ const RegisterForm = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  placeholder="Enter your password"
+                  placeholder="Enter your password (min 6 characters)"
                 />
               </div>
 

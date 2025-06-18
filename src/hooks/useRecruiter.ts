@@ -22,26 +22,31 @@ export const useRecruiter = () => {
   useEffect(() => {
     if (user) {
       fetchProfile();
+    } else {
+      setLoading(false);
     }
   }, [user]);
 
   const fetchProfile = async () => {
+    if (!user) return;
+    
     try {
       const { data, error } = await supabase
         .from('recruiters')
         .select('*')
-        .eq('user_id', user?.id)
-        .single();
+        .eq('user_id', user.id)
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching recruiter profile:', error);
-        if (error.code === 'PGRST116') {
-          await createProfile();
-        } else {
-          throw error;
-        }
-      } else {
+        throw error;
+      }
+
+      if (data) {
         setProfile(data);
+      } else {
+        // Create profile if it doesn't exist
+        await createProfile();
       }
     } catch (error) {
       console.error('Error fetching recruiter profile:', error);
@@ -52,11 +57,13 @@ export const useRecruiter = () => {
   };
 
   const createProfile = async () => {
+    if (!user) return;
+    
     try {
       const { data, error } = await supabase
         .from('recruiters')
         .insert({
-          user_id: user?.id,
+          user_id: user.id,
           company_name: 'New Company'
         })
         .select()
@@ -72,13 +79,15 @@ export const useRecruiter = () => {
   };
 
   const updateProfile = async (updates: Partial<RecruiterProfile>) => {
+    if (!user) return;
+    
     try {
       console.log('Updating recruiter profile with:', updates);
       
       const { data, error } = await supabase
         .from('recruiters')
         .update(updates)
-        .eq('user_id', user?.id)
+        .eq('user_id', user.id)
         .select()
         .single();
 
@@ -96,47 +105,10 @@ export const useRecruiter = () => {
     }
   };
 
-  const uploadFile = async (file: File, bucket: string, folder: string = '') => {
-    try {
-      if (!user) throw new Error('User not authenticated');
-      
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/${folder}${Date.now()}.${fileExt}`;
-      
-      console.log('Uploading file:', fileName, 'to bucket:', bucket);
-      
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from(bucket)
-        .upload(fileName, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      if (uploadError) {
-        console.error('Upload error:', uploadError);
-        throw uploadError;
-      }
-
-      console.log('Upload successful:', uploadData);
-
-      const { data: urlData } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(fileName);
-
-      console.log('Public URL:', urlData.publicUrl);
-      return urlData.publicUrl;
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      toast.error(`Failed to upload file: ${error.message}`);
-      throw error;
-    }
-  };
-
   return {
     profile,
     loading,
     updateProfile,
-    uploadFile,
     refetch: fetchProfile
   };
 };

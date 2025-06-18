@@ -1,13 +1,16 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, UserRole } from '../types';
+import { User, Session } from '@supabase/supabase-js';
+import { supabase } from '../integrations/supabase/client';
+import { UserRole } from '../types';
 
 interface AuthContextType {
   user: User | null;
+  session: Session | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, role: UserRole) => Promise<void>;
-  logout: () => void;
+  login: (email: string, password: string) => Promise<{ error?: string }>;
+  register: (email: string, password: string, role: UserRole) => Promise<{ error?: string }>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -22,67 +25,110 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate checking for existing session
-    const savedUser = localStorage.getItem('jobPortalUser');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setLoading(false);
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log('Auth state changed:', event, session);
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
+      }
+    );
+
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (email: string, password: string) => {
-    setLoading(true);
     try {
-      // Mock login - replace with Supabase auth
-      const mockUser: User = {
-        id: '1',
+      setLoading(true);
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        role: email.includes('admin') ? 'admin' : email.includes('recruiter') ? 'recruiter' : 'candidate',
-        created_at: new Date().toISOString(),
-      };
-      
-      setUser(mockUser);
-      localStorage.setItem('jobPortalUser', JSON.stringify(mockUser));
+        password,
+      });
+
+      if (error) {
+        console.error('Login error:', error);
+        return { error: error.message };
+      }
+
+      console.log('Login successful:', data);
+      return {};
     } catch (error) {
-      throw new Error('Login failed');
+      console.error('Login failed:', error);
+      return { error: 'Login failed. Please try again.' };
     } finally {
       setLoading(false);
     }
   };
 
   const register = async (email: string, password: string, role: UserRole) => {
-    setLoading(true);
     try {
-      // Mock registration - replace with Supabase auth
-      const newUser: User = {
-        id: Date.now().toString(),
-        email,
-        role,
-        created_at: new Date().toISOString(),
-      };
+      setLoading(true);
+      const redirectUrl = `${window.location.origin}/`;
       
-      setUser(newUser);
-      localStorage.setItem('jobPortalUser', JSON.stringify(newUser));
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: {
+            role: role
+          }
+        }
+      });
+
+      if (error) {
+        console.error('Registration error:', error);
+        return { error: error.message };
+      }
+
+      // If user needs to confirm email
+      if (data.user && !data.session) {
+        return { error: 'Please check your email to confirm your account.' };
+      }
+
+      console.log('Registration successful:', data);
+      return {};
     } catch (error) {
-      throw new Error('Registration failed');
+      console.error('Registration failed:', error);
+      return { error: 'Registration failed. Please try again.' };
     } finally {
       setLoading(false);
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('jobPortalUser');
-    // Redirect to login page
-    window.location.href = '/login';
+  const logout = async () => {
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Logout error:', error);
+      }
+      // Clear local state
+      setUser(null);
+      setSession(null);
+    } catch (error) {
+      console.error('Logout failed:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <AuthContext.Provider value={{
       user,
+      session,
       loading,
       login,
       register,
