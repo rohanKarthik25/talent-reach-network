@@ -1,5 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User, UserRole } from '../types';
 
 interface AuthContextType {
@@ -23,6 +24,7 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Simulate checking for existing session
@@ -76,8 +78,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logout = () => {
     setUser(null);
     localStorage.removeItem('jobPortalUser');
-    // Redirect to login page
-    window.location.href = '/login';
+    // Use React Router navigation instead of window.location
+    navigate('/login', { replace: true });
   };
 
   return (
