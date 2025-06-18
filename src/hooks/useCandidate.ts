@@ -110,7 +110,7 @@ export const useCandidate = () => {
     }
   };
 
-  const uploadFile = async (file: File, bucket: string, folder: string) => {
+  const uploadFile = async (file: File, bucket: string, folder: string): Promise<string> => {
     if (!user) throw new Error('User not authenticated');
     
     const fileExt = file.name.split('.').pop();
