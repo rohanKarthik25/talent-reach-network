@@ -76,8 +76,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logout = () => {
     setUser(null);
     localStorage.removeItem('jobPortalUser');
-    // Redirect to login page
-    window.location.href = '/login';
   };
 
   return (
