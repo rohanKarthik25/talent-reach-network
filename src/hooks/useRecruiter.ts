@@ -105,10 +105,33 @@ export const useRecruiter = () => {
     }
   };
 
+  const uploadFile = async (file: File, bucket: string, folder: string) => {
+    if (!user) throw new Error('User not authenticated');
+    
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${folder}${user.id}_${Date.now()}.${fileExt}`;
+    
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(fileName, file);
+
+    if (error) {
+      console.error('Upload error:', error);
+      throw error;
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(fileName);
+
+    return publicUrl;
+  };
+
   return {
     profile,
     loading,
     updateProfile,
+    uploadFile,
     refetch: fetchProfile
   };
 };
